@@ -1,5 +1,5 @@
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::ptr::NonNull;
 
 ///slab allocator skeleton
@@ -98,6 +98,5 @@ mod tests {
         assert!(x.is_some());
         assert!(y.is_some());
         assert!(z.is_none());
-
     }
 }
