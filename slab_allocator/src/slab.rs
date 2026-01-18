@@ -32,6 +32,19 @@ impl SlabAllocator {
         let ptr = unsafe { self.memory.as_mut_ptr().add(offset) };
         Some(unsafe { NonNull::new_unchecked(ptr) })
     }
+
+    /// Free an object previously allocated by this slab
+    ///
+    /// # Safety
+    /// - `ptr` must have been returned by `alloc()`
+    /// - `ptr` must not have been freed already
+    /// - Using a pointer not from this slab results in undefined behavior
+    pub unsafe fn free(&mut self, ptr: NonNull<u8>) {
+        let base = self.memory.as_ptr() as usize;
+        let p = ptr.as_ptr() as usize;
+        let index = (p - base) / self.object_size;
+        self.free_list.push(index);
+    }
 }
 
 #[cfg(test)]
@@ -63,4 +76,28 @@ mod tests {
         assert!(e.is_none()); // no more free objects
     }
 
+    #[test]
+    fn free_test() {
+        let mut slab = SlabAllocator::new(32, 4);
+
+        let a = slab.alloc().unwrap();
+        let b = slab.alloc().unwrap();
+        let _c = slab.alloc().unwrap();
+        let _d = slab.alloc().unwrap();
+
+        // free a & b
+        unsafe {
+            slab.free(a);
+            slab.free(b);
+        }
+
+        //currently 2 free objects (a,b), the other 2 are still allocated (c,d)
+        let x = slab.alloc();
+        let y = slab.alloc();
+        let z = slab.alloc(); // should return None
+        assert!(x.is_some());
+        assert!(y.is_some());
+        assert!(z.is_none());
+
+    }
 }
