@@ -39,6 +39,14 @@ impl SlabAllocator {
     /// - `ptr` must have been returned by `alloc()`
     /// - `ptr` must not have been freed already
     /// - Using a pointer not from this slab results in undefined behavior
+    ///
+    /// Note: a double free is not caught here. The free list has no way to
+    /// tell "index already free" from "index allocated", so freeing the same
+    /// pointer twice pushes the same index twice and the next two `alloc()`
+    /// calls would hand out the same memory as two distinct objects. That is
+    /// why there is no unit test for double free below: it is a documented
+    /// safety violation (UB by contract), not a behavior this design detects
+    /// or recovers from.
     pub unsafe fn free(&mut self, ptr: NonNull<u8>) {
         let base = self.memory.as_ptr() as usize;
         let p = ptr.as_ptr() as usize;
@@ -98,5 +106,15 @@ mod tests {
         assert!(x.is_some());
         assert!(y.is_some());
         assert!(z.is_none());
+    }
+
+    #[test]
+    fn zero_capacity_test() {
+        // Edge case: a slab created with no capacity has an empty free
+        // list, so the very first alloc() must fail instead of panicking
+        // or reading out of bounds.
+        let mut slab = SlabAllocator::new(32, 0);
+        assert_eq!(slab.memory.len(), 0);
+        assert!(slab.alloc().is_none());
     }
 }

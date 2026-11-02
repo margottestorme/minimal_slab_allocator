@@ -48,12 +48,53 @@ if let Some(p) = ptr {
 ```
 ---
 
+## Example
+
+Allocating past capacity returns `None` instead of panicking or reading out
+of bounds, and freed slots are reused by later allocations:
+
+```rust
+use slab_allocator::slab::SlabAllocator;
+
+let mut slab = SlabAllocator::new(32, 2);
+
+let a = slab.alloc(); // Some(..)
+let b = slab.alloc(); // Some(..)
+let c = slab.alloc(); // None, pool exhausted (capacity = 2)
+
+assert!(a.is_some() && b.is_some());
+assert!(c.is_none());
+
+unsafe { slab.free(a.unwrap()) };
+
+let d = slab.alloc(); // Some(..), reuses the slot just freed
+assert!(d.is_some());
+```
+
+---
+
 ## Build and Test
 
 ```bash
 cargo check     # verify compilation
 cargo test      # run all unit tests
 ```
+
+Output on the current test suite:
+
+```
+running 4 tests
+test slab::tests::alloc_test ... ok
+test slab::tests::zero_capacity_test ... ok
+test slab::tests::skeleton_test ... ok
+test slab::tests::free_test ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+```
+
+A GitHub Actions workflow (`.github/workflows/ci.yml`) runs `cargo build` and
+`cargo test` on every push and pull request.
+
 ---
 
 ## Credits
